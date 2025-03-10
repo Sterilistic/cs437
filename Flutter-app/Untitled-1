@@ -1,0 +1,131 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:flutter_blue_app/AppPage.dart';
+import './ChatPage.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+class MainPage extends StatefulWidget {
+  @override
+  _MainPage createState() => _MainPage();
+}
+
+class _MainPage extends State<MainPage> {
+  BluetoothDevice? _device;
+  bool _isScanning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissionsAndFetch();
+  }
+
+  Future<void> _checkPermissionsAndFetch() async {
+    // Request Bluetooth permissions
+    var bluetoothStatus = await Permission.bluetooth.request();
+    var locationStatus = await Permission.location.request();
+    
+    if (bluetoothStatus.isGranted && locationStatus.isGranted) {
+      _startScanning();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bluetooth and Location permissions are required')),
+      );
+    }
+  }
+
+  void _startScanning() async {
+    try {
+      setState(() {
+        _isScanning = true;
+      });
+
+      // Start scanning
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 4));
+
+      // Listen for scan results
+      FlutterBluePlus.scanResults.listen((results) {
+        for (ScanResult r in results) {
+          if (r.device.localName == "raspberrypi") {
+            setState(() {
+              _device = r.device;
+              _isScanning = false;
+            });
+            FlutterBluePlus.stopScan();
+            break;
+          }
+        }
+      });
+
+      // When scan completes
+      await Future.delayed(const Duration(seconds: 4));
+      setState(() {
+        _isScanning = false;
+      });
+
+    } catch (e) {
+      print('Error scanning: $e');
+      setState(() {
+        _isScanning = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to scan for Bluetooth devices: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Chat Demo'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isScanning ? null : _startScanning,
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: <Widget>[
+          Card(
+            child: ListTile(
+              leading: _isScanning 
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.bluetooth),
+              title: Text(
+                _isScanning
+                    ? "Scanning..."
+                    : "Device: ${_device?.localName ?? "No device selected"}",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16.0),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+            ),
+            onPressed: _device != null
+                ? () {
+              print('Connect -> selected ${_device!.remoteId.str}');
+              _startChat(context, _device!);
+            }
+                : null, // Button will be disabled if no device is selected
+            child: const Text('Start Chat'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startChat(BuildContext context, BluetoothDevice server) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => ChatPage(server: server)),
+    );
+  }
+}

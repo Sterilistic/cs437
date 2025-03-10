@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Car Control</title>
+    <style>
+        .control-panel {
+            text-align: center;
+            padding: 20px;
+        }
+        .metrics {
+            margin: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+        .control-button {
+            width: 80px;
+            height: 80px;
+            margin: 5px;
+            font-size: 16px;
+        }
+        #connection-status {
+            margin: 10px;
+            padding: 10px;
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <div id="connection-status">Not Connected</div>
+        
+        <div class="metrics">
+            <h3>Car Status</h3>
+            <p>Battery Voltage: <span id="battery-level">--</span>V</p>
+            <p>Status: <span id="movement-status">Stopped</span></p>
+            <p>Turning: <span id="turning-status">Not turning</span></p>
+        </div>
+
+        <div class="connection-controls">
+            <input type="text" id="ip-address" placeholder="IP Address" value="192.168.1.100">
+            <input type="number" id="port" placeholder="Port" value="5000">
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+        </div>
+
+        <div class="movement-controls">
+            <button class="control-button" onmousedown="sendCommand('forward')" onmouseup="sendCommand('stop')">Forward</button><br>
+            <button class="control-button" onmousedown="sendCommand('left')" onmouseup="sendCommand('stop')">Left</button>
+            <button class="control-button" onmousedown="sendCommand('stop')">Stop</button>
+            <button class="control-button" onmousedown="sendCommand('right')" onmouseup="sendCommand('stop')">Right</button><br>
+            <button class="control-button" onmousedown="sendCommand('backward')" onmouseup="sendCommand('stop')">Backward</button>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        function connect() {
+            const ipAddress = document.getElementById('ip-address').value;
+            const port = parseInt(document.getElementById('port').value);
+            ipcRenderer.send('connect-to-server', { ipAddress, port });
+        }
+
+        function disconnect() {
+            ipcRenderer.send('disconnect');
+        }
+
+        function sendCommand(command) {
+            ipcRenderer.send('control-command', command);
+        }
+
+        // Handle connection status updates
+        ipcRenderer.on('connection-status', (event, data) => {
+            document.getElementById('connection-status').innerText = data.message;
+        });
+
+        // Handle metrics updates
+        ipcRenderer.on('metrics-update', (event, data) => {
+            console.log('Received metrics update:', data);  // Debug print
+            
+            if (data.battery !== undefined) {
+                document.getElementById('battery-level').innerText = data.battery;
+            }
+            if (data.movement !== undefined) {
+                document.getElementById('movement-status').innerText = data.movement;
+            }
+            if (data.turning !== undefined) {
+                document.getElementById('turning-status').innerText = 
+                    data.turning.active ? `Turning ${data.turning.direction}` : 'Not turning';
+            }
+        });
+
+        // Add keyboard controls
+        document.addEventListener('keydown', (event) => {
+            switch(event.key) {
+                case 'ArrowUp': sendCommand('forward'); break;
+                case 'ArrowDown': sendCommand('backward'); break;
+                case 'ArrowLeft': sendCommand('left'); break;
+                case 'ArrowRight': sendCommand('right'); break;
+                case ' ': sendCommand('stop'); break;
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+                sendCommand('stop');
+            }
+        });
+    </script>
+</body>
+</html> 

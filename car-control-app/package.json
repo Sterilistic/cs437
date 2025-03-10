@@ -1,0 +1,19 @@
+{
+  "name": "car-control-app",
+  "version": "1.0.0",
+  "description": "Car Control Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^28.1.0"
+  },
+  "dependencies": {
+    "socket.io": "^4.7.4",
+    "socket.io-client": "^4.7.4"
+  },
+  "keywords": []
+}
